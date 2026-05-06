@@ -25,15 +25,17 @@ Parameters:
   DomainName:
     Type: String
     Description: "サブドメイン例: seaman.example.com"
+    Default: "seaman-reborn.com"
 
   CertbotEmail:
     Type: String
     Description: Let's Encrypt 登録メールアドレス
-    Default: admin@example.com
+    Default: "owngoal1978summer@gmail.com"
 
   GitRepoSSHUrl:
     Type: String
     Description: "SSH clone URL 例: git@github.com:USER/seaman-reborn.git"
+    Default: "git@github.com:supertramp1978/seaman_reborn.git"
 
   SSMDeployKeyParam:
     Type: String
@@ -45,9 +47,6 @@ Parameters:
     Default: /seaman/htpasswd
     Description: SSM Parameter Store — Basic 認証 htpasswd 内容 (SecureString)
 
-  AssetBucket:
-    Type: String
-    Description: scripts/ や Modelfile を置く既存 S3 バケット名
 
 # ─── リソース ────────────────────────────────────────────────────────
 Resources:
@@ -113,7 +112,7 @@ Resources:
   SecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Seaman Demo — HTTPS (443) + certbot ACME (80)
+      GroupDescription: Seaman Demo HTTPS 443 certbot ACME 80
       VpcId: !Ref VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -133,6 +132,26 @@ Resources:
       Tags:
         - Key: Name
           Value: Seaman-SG
+
+  # ── S3 Bucket (スクリプト・アセット置き場) ──────────────────────────
+  ScriptsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "seaman-scripts-${AWS::AccountId}-${AWS::Region}"
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Name
+          Value: Seaman-Scripts
 
   # ── IAM Role ────────────────────────────────────────────────────────
   IAMRole:
@@ -156,8 +175,8 @@ Resources:
               - Effect: Allow
                 Action: [s3:GetObject, s3:ListBucket]
                 Resource:
-                  - !Sub "arn:aws:s3:::${AssetBucket}"
-                  - !Sub "arn:aws:s3:::${AssetBucket}/*"
+                  - !GetAtt ScriptsBucket.Arn
+                  - !Sub "${ScriptsBucket.Arn}/*"
         - PolicyName: SeamanSSMParameters
           PolicyDocument:
             Version: "2012-10-17"
@@ -213,7 +232,7 @@ Resources:
         Fn::Base64: !Sub |
           #!/bin/bash
           set -euo pipefail
-          LOG=/var/log/seaman-setup.log
+          LOG=/var/log/seaman-userdata.log
           exec > >(tee -a "$LOG") 2>&1
           echo "[UserData] $(date '+%Y-%m-%d %H:%M:%S') 開始"
 
@@ -223,14 +242,14 @@ Resources:
           INSTANCE_ID=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" \
             http://169.254.169.254/latest/meta-data/instance-id)
 
-          # setup-instance.sh に渡す環境変数
+          # setup-instance.sh に渡す環境変数 (/etc/seaman-env を source して使用)
           cat > /etc/seaman-env <<EOF
           export SEAMAN_DOMAIN="${DomainName}"
           export SEAMAN_CERTBOT_EMAIL="${CertbotEmail}"
           export SEAMAN_GIT_REPO="${GitRepoSSHUrl}"
           export SEAMAN_SSM_DEPLOY_KEY="${SSMDeployKeyParam}"
           export SEAMAN_SSM_HTPASSWD="${SSMHtpasswdParam}"
-          export SEAMAN_ASSET_BUCKET="${AssetBucket}"
+          export SEAMAN_ASSET_BUCKET="${ScriptsBucket}"
           export SEAMAN_REGION="${AWS::Region}"
           export SEAMAN_INSTANCE_ID="$INSTANCE_ID"
           EOF
@@ -241,11 +260,14 @@ Resources:
           curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
           unzip -q /tmp/awscliv2.zip -d /tmp/awscliv2 && /tmp/awscliv2/aws/install --update
 
-          # S3 からセットアップスクリプトを取得して実行
-          aws s3 cp "s3://${AssetBucket}/scripts/setup-instance.sh" /usr/local/bin/seaman-setup.sh \
-            --region "${AWS::Region}"
-          chmod +x /usr/local/bin/seaman-setup.sh
-          SEAMAN_SETUP_PHASE=1 bash /usr/local/bin/seaman-setup.sh
+          echo "[UserData] 完了 — S3 にスクリプトをアップロード後、手動でセットアップを実行してください:"
+          echo "  # ① ローカルからスクリプトをアップロード"
+          echo "  aws s3 cp scripts/setup-phase1.sh s3://${ScriptsBucket}/scripts/setup-phase1.sh"
+          echo "  aws s3 cp scripts/setup-phase2.sh s3://${ScriptsBucket}/scripts/setup-phase2.sh"
+          echo "  # ② Phase 1 実行 (完了後 reboot)"
+          echo "  source /etc/seaman-env && aws s3 cp s3://${ScriptsBucket}/scripts/setup-phase1.sh /usr/local/bin/setup-phase1.sh && chmod +x /usr/local/bin/setup-phase1.sh && bash /usr/local/bin/setup-phase1.sh"
+          echo "  # ③ reboot 後に Phase 2 実行"
+          echo "  source /etc/seaman-env && aws s3 cp s3://${ScriptsBucket}/scripts/setup-phase2.sh /usr/local/bin/setup-phase2.sh && chmod +x /usr/local/bin/setup-phase2.sh && bash /usr/local/bin/setup-phase2.sh"
       Tags:
         - Key: Name
           Value: Seaman-Demo
@@ -287,9 +309,21 @@ Outputs:
     Description: デモ URL
     Value: !Sub "https://${DomainName}"
 
-  SetupLog:
-    Description: セットアップログ確認コマンド
+  ScriptsBucketName:
+    Description: スクリプト・アセット用 S3 バケット名
+    Value: !Ref ScriptsBucket
+
+  ManualSetupPhase1:
+    Description: "Phase 1 実行コマンド (完了後 reboot)"
+    Value: "source /etc/seaman-env && bash /usr/local/bin/setup-phase1.sh"
+
+  ManualSetupPhase2:
+    Description: "Phase 2 実行コマンド (reboot 後)"
+    Value: "source /etc/seaman-env && bash /usr/local/bin/setup-phase2.sh"
+
+  UserDataLog:
+    Description: UserData ログ確認コマンド
     Value: !Sub >-
       aws ssm start-session --target ${EC2Instance} --region ${AWS::Region}
       --document-name AWS-StartInteractiveCommand
-      --parameters command="tail -f /var/log/seaman-setup.log"
+      --parameters command="tail -f /var/log/seaman-userdata.log"
