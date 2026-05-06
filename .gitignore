@@ -19,5 +19,19 @@ memo.md
 emsdk/
 whisper.cpp/
 
+# ローカル Nginx テスト作業ファイル
+nginx/.local/
+
+# WASM ビルド成果物 (EC2 または emsdk でビルド)
+assets/wasm/whisper/libmain.js
+assets/wasm/whisper/libmain.wasm
+assets/wasm/whisper/libmain.worker.js
+assets/wasm/whisper/*.js
+assets/wasm/whisper/*.wasm
+assets/wasm/ggml-*.bin
+
+# ナレーション音声 (VOICEVOX で生成)
+assets/audio/narration_title.wav
+
 # ログファイルを無視
 *.log

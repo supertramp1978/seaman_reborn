@@ -1,0 +1,295 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  Seaman Demo — 単一 EC2 (g5.xlarge) + Nginx リバースプロキシ。
+  Ollama / VOICEVOX をローカルポートで起動し、Nginx 経由で HTTPS 公開。
+  デモ後は delete-stack で全リソース削除。
+
+# ─── パラメータ ────────────────────────────────────────────────────────
+Parameters:
+  InstanceType:
+    Type: String
+    Default: g5.xlarge
+    AllowedValues: [g4dn.xlarge, g5.xlarge, g6.xlarge]
+    Description: GPU インスタンスタイプ
+
+  AmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id
+    Description: Ubuntu 22.04 LTS AMI (AWS 管理の SSM パスで自動解決)
+
+  AllowedCIDR:
+    Type: String
+    Description: HTTPS 許可 CIDR (例 203.0.113.0/24 または 0.0.0.0/0)
+    Default: "0.0.0.0/0"
+
+  DomainName:
+    Type: String
+    Description: "サブドメイン例: seaman.example.com"
+
+  CertbotEmail:
+    Type: String
+    Description: Let's Encrypt 登録メールアドレス
+    Default: admin@example.com
+
+  GitRepoSSHUrl:
+    Type: String
+    Description: "SSH clone URL 例: git@github.com:USER/seaman-reborn.git"
+
+  SSMDeployKeyParam:
+    Type: String
+    Default: /seaman/deploy-key
+    Description: SSM Parameter Store — GitHub SSH デプロイキー (SecureString)
+
+  SSMHtpasswdParam:
+    Type: String
+    Default: /seaman/htpasswd
+    Description: SSM Parameter Store — Basic 認証 htpasswd 内容 (SecureString)
+
+  AssetBucket:
+    Type: String
+    Description: scripts/ や Modelfile を置く既存 S3 バケット名
+
+# ─── リソース ────────────────────────────────────────────────────────
+Resources:
+
+  # ── VPC ──────────────────────────────────────────────────────────────
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: Seaman-VPC
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: Seaman-IGW
+
+  VPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: Seaman-PublicSubnet
+
+  RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: Seaman-RouteTable
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VPCGatewayAttachment
+    Properties:
+      RouteTableId: !Ref RouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  SubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref RouteTable
+
+  # ── Security Group ───────────────────────────────────────────────────
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Seaman Demo — HTTPS (443) + certbot ACME (80)
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: !Ref AllowedCIDR
+          Description: HTTPS from allowed network
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: HTTP for Let's Encrypt ACME challenge
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          CidrIp: 0.0.0.0/0
+          Description: Allow all outbound
+      Tags:
+        - Key: Name
+          Value: Seaman-SG
+
+  # ── IAM Role ────────────────────────────────────────────────────────
+  IAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: Seaman-EC2-Role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: SeamanS3Read
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [s3:GetObject, s3:ListBucket]
+                Resource:
+                  - !Sub "arn:aws:s3:::${AssetBucket}"
+                  - !Sub "arn:aws:s3:::${AssetBucket}/*"
+        - PolicyName: SeamanSSMParameters
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [ssm:GetParameter, ssm:GetParameters]
+                Resource:
+                  - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/seaman/*"
+        - PolicyName: SeamanCloudWatchLogs
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [logs:CreateLogGroup, logs:CreateLogStream, logs:PutLogEvents]
+                Resource:
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/seaman/*:*"
+        - PolicyName: SeamanEC2Tags
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: ec2:CreateTags
+                Resource: !Sub "arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:instance/*"
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: Seaman-EC2-InstanceProfile
+      Roles:
+        - !Ref IAMRole
+
+  # ── EC2 Instance ─────────────────────────────────────────────────────
+  EC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      ImageId: !Ref AmiId
+      IamInstanceProfile: !Ref InstanceProfile
+      SubnetId: !Ref PublicSubnet
+      SecurityGroupIds:
+        - !Ref SecurityGroup
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: 100
+            VolumeType: gp3
+            Iops: 3000
+            DeleteOnTermination: true
+      MetadataOptions:
+        HttpTokens: required        # IMDSv2 強制
+        HttpEndpoint: enabled
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -euo pipefail
+          LOG=/var/log/seaman-setup.log
+          exec > >(tee -a "$LOG") 2>&1
+          echo "[UserData] $(date '+%Y-%m-%d %H:%M:%S') 開始"
+
+          # IMDSv2 でインスタンスメタデータ取得
+          TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" \
+            -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+          INSTANCE_ID=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" \
+            http://169.254.169.254/latest/meta-data/instance-id)
+
+          # setup-instance.sh に渡す環境変数
+          cat > /etc/seaman-env <<EOF
+          export SEAMAN_DOMAIN="${DomainName}"
+          export SEAMAN_CERTBOT_EMAIL="${CertbotEmail}"
+          export SEAMAN_GIT_REPO="${GitRepoSSHUrl}"
+          export SEAMAN_SSM_DEPLOY_KEY="${SSMDeployKeyParam}"
+          export SEAMAN_SSM_HTPASSWD="${SSMHtpasswdParam}"
+          export SEAMAN_ASSET_BUCKET="${AssetBucket}"
+          export SEAMAN_REGION="${AWS::Region}"
+          export SEAMAN_INSTANCE_ID="$INSTANCE_ID"
+          EOF
+
+          # AWS CLI v2 インストール (Ubuntu 22.04 は v1 同梱、v2 に更新)
+          apt-get update -qq
+          apt-get install -y --no-install-recommends unzip curl
+          curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+          unzip -q /tmp/awscliv2.zip -d /tmp/awscliv2 && /tmp/awscliv2/aws/install --update
+
+          # S3 からセットアップスクリプトを取得して実行
+          aws s3 cp "s3://${AssetBucket}/scripts/setup-instance.sh" /usr/local/bin/seaman-setup.sh \
+            --region "${AWS::Region}"
+          chmod +x /usr/local/bin/seaman-setup.sh
+          SEAMAN_SETUP_PHASE=1 bash /usr/local/bin/seaman-setup.sh
+      Tags:
+        - Key: Name
+          Value: Seaman-Demo
+        - Key: Environment
+          Value: demo
+        - Key: Status
+          Value: Provisioning
+
+  # ── Elastic IP ───────────────────────────────────────────────────────
+  ElasticIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: Seaman-EIP
+
+  EIPAssociation:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      InstanceId: !Ref EC2Instance
+      EIP: !Ref ElasticIP
+
+# ─── 出力 ──────────────────────────────────────────────────────────────
+Outputs:
+  PublicIP:
+    Description: Elastic IP — Route53 A レコードにこの IP を設定してください
+    Value: !Ref ElasticIP
+
+  InstanceId:
+    Description: EC2 インスタンス ID (SSM Session Manager 接続用)
+    Value: !Ref EC2Instance
+
+  SsmConnectCommand:
+    Description: SSM 接続コマンド (コピーしてそのまま実行)
+    Value: !Sub "aws ssm start-session --target ${EC2Instance} --region ${AWS::Region}"
+
+  WebUrl:
+    Description: デモ URL
+    Value: !Sub "https://${DomainName}"
+
+  SetupLog:
+    Description: セットアップログ確認コマンド
+    Value: !Sub >-
+      aws ssm start-session --target ${EC2Instance} --region ${AWS::Region}
+      --document-name AWS-StartInteractiveCommand
+      --parameters command="tail -f /var/log/seaman-setup.log"

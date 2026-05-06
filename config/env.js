@@ -5,7 +5,7 @@ const isLocal =
   typeof location !== "undefined" &&
   (location.hostname === "localhost" || location.hostname === "127.0.0.1");
 
-export const OLLAMA_URL = isLocal ? "http://localhost:11434" : "/api";
+export const OLLAMA_URL = isLocal ? "http://localhost:11434" : "";
 
 export let MODEL_NAME = "dsasai/llama3-elyza-jp-8b:latest";
 
@@ -19,9 +19,7 @@ export const OLLAMA_OPTIONS = {
 };
 
 // VOICEVOX Engine（ローカルまたは同一ホスト）
-export const VOICEVOX_URL = isLocal
-  ? "http://localhost:50021"
-  : `http://${location.hostname}:50021`;
+export const VOICEVOX_URL = isLocal ? "http://localhost:50021" : "/voicevox";
 
 // スピーカー ID: /speakers エンドポイントで確認して変更
 export const VOICEVOX_SPEAKER_ID = 66;
