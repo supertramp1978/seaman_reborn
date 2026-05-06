@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Seaman Modern</title>
+
+    <!-- Three.js CDN importmap (Phase 3) -->
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.177.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.177.0/examples/jsm/",
+        "@huggingface/transformers": "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3"
+      }
+    }
+    </script>
+
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0e1116;
+        --panel: #161b22;
+        --border: #2a313a;
+        --text: #e6edf3;
+        --muted: #8b949e;
+        --user: #2d5fab;
+        --seaman: #1f3a2f;
+        --error: #4a1f1f;
+        --accent: #58a6ff;
+        --mic-on: #3fb950;
+        --mic-off: #8b949e;
+      }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; overflow: hidden; }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
+      }
+
+      /* ── プリロードオーバーレイ ── */
+      #preload-overlay {
+        position: fixed; inset: 0;
+        background: var(--bg);
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        gap: 1rem; z-index: 100;
+        transition: opacity 0.4s;
+      }
+      #preload-overlay.hidden { opacity: 0; pointer-events: none; }
+      #preload-overlay p { color: var(--muted); font-size: 0.9rem; margin: 0; }
+      #preload-bar { width: min(360px, 80vw); height: 6px; border-radius: 3px; accent-color: var(--accent); }
+
+      /* ── 全体レイアウト ── */
+      .app {
+        width: 100%;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* ── 3D キャンバス ── */
+      #scene-canvas {
+        width: 100%;
+        height: 60vh;
+        min-height: 320px;
+        display: block;
+        flex-shrink: 0;
+        cursor: crosshair;
+        background: #050b14;
+      }
+
+      /* ── チャットパネル ── */
+      #chat-panel {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        padding: 0.5rem 1.5rem 0.75rem;
+        max-width: 720px;
+        width: 100%;
+        margin: 0 auto;
+        overflow: hidden;
+        min-height: 200px;
+      }
+
+      /* ── ヘッダー ── */
+      header { display: flex; justify-content: space-between; align-items: center; }
+      header h1 { font-size: 1.05rem; margin: 0; font-weight: 600; }
+
+      /* ── ボイス状態インジケーター ── */
+      #voice-state {
+        font-size: 0.78rem;
+        padding: 0.15rem 0.6rem;
+        border-radius: 10px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        color: var(--muted);
+        display: none;
+      }
+      #voice-state.listening   { color: var(--mic-on);  border-color: var(--mic-on); }
+      #voice-state.transcribing{ color: #f0a040;        border-color: #f0a040; }
+      #voice-state.thinking    { color: var(--accent);  border-color: var(--accent); }
+      #voice-state.speaking    { color: #a78bfa;        border-color: #a78bfa; }
+      #voice-state.visible     { display: inline-block; }
+
+      /* ── チャットログ ── */
+      #chat-log {
+        flex: 1; overflow-y: auto;
+        background: var(--panel); border: 1px solid var(--border);
+        border-radius: 10px; padding: 1rem;
+        display: flex; flex-direction: column; gap: 0.5rem;
+        min-height: 80px;
+      }
+      .bubble {
+        max-width: 80%; padding: 0.55rem 0.85rem;
+        border-radius: 10px; line-height: 1.55;
+        white-space: pre-wrap; word-break: break-word;
+      }
+      .bubble-user   { align-self: flex-end;  background: var(--user); }
+      .bubble-seaman { align-self: flex-start; background: var(--seaman); }
+      .bubble[data-state="streaming"]::after {
+        content: "▍"; margin-left: 2px;
+        animation: caret 1s steps(2, end) infinite;
+        color: var(--accent);
+      }
+      .bubble[data-state="error"] { background: var(--error); color: #ffd2d2; }
+
+      @keyframes caret { 0%,100%{opacity:1} 50%{opacity:0} }
+
+      /* ── シンキング ── */
+      #thinking {
+        align-self: flex-start; color: var(--muted);
+        padding: 0.25rem 0.85rem; font-size: 1rem;
+      }
+      #thinking[hidden] { display: none; }
+      #thinking::after {
+        content: "……"; display: inline-block;
+        animation: dots 1.4s ease-in-out infinite;
+      }
+      @keyframes dots { 0%,100%{opacity:0.25} 50%{opacity:1} }
+
+      /* ── 入力フォーム ── */
+      #input-form { display: flex; gap: 0.5rem; align-items: stretch; }
+      #input {
+        flex: 1; resize: none; min-height: 2.6rem; max-height: 8rem;
+        padding: 0.55rem 0.7rem; border-radius: 8px;
+        border: 1px solid var(--border); background: #0b0f14;
+        color: var(--text); font: inherit; font-size: 0.95rem;
+      }
+      #input:disabled { opacity: 0.6; cursor: not-allowed; }
+      #send {
+        padding: 0 1.1rem; border-radius: 8px;
+        border: 1px solid var(--accent); background: var(--accent);
+        color: #0b0f14; font-weight: 600; cursor: pointer;
+      }
+      #send:disabled { opacity: 0.5; cursor: not-allowed; }
+
+      /* ── マイクボタン ── */
+      #mic-toggle {
+        padding: 0 0.85rem; border-radius: 8px;
+        border: 1px solid var(--mic-off); background: transparent;
+        color: var(--mic-off); font-size: 1.2rem; cursor: pointer;
+        transition: color 0.2s, border-color 0.2s;
+      }
+      #mic-toggle.active { color: var(--mic-on); border-color: var(--mic-on); }
+      #mic-toggle:disabled { opacity: 0.35; cursor: not-allowed; }
+    </style>
+  </head>
+  <body>
+
+    <!-- プリロードオーバーレイ -->
+    <div id="preload-overlay">
+      <p id="preload-msg">シーマンが目を覚ましている…</p>
+      <progress id="preload-bar" value="0" max="1"></progress>
+      <p id="preload-detail" style="font-size:0.75rem; color: #4a5568;"></p>
+    </div>
+
+    <div class="app">
+      <!-- 3D 水槽キャンバス（上部 60vh） -->
+      <canvas id="scene-canvas"></canvas>
+
+      <!-- チャットパネル（下部 40vh） -->
+      <div id="chat-panel">
+        <header>
+          <h1>Seaman Modern</h1>
+          <span id="voice-state">idle</span>
+        </header>
+
+        <div id="chat-log" aria-live="polite"></div>
+        <div id="thinking" hidden aria-hidden="true"></div>
+
+        <form id="input-form" autocomplete="off">
+          <textarea
+            id="input"
+            rows="1"
+            placeholder="シーマンに話しかける（Enter で送信、Shift+Enter で改行）"
+          ></textarea>
+          <button id="mic-toggle" type="button" disabled title="音声入力">🎤</button>
+          <button id="send" type="submit">送信</button>
+        </form>
+      </div>
+    </div>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>

@@ -1,0 +1,20 @@
+# 開発環境
+.DS_Store
+.claude/
+CLAUDE.md
+seaman-modern.code-workspace
+
+# 開発資材
+original_files/
+tests/
+debug/
+docs/
+
+# 工程管理
+tasks/
+memo.md
+2026-05-05-194856-resume.txt
+
+# ライブラリ
+emsdk/
+whisper.cpp/
