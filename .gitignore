@@ -18,3 +18,6 @@ memo.md
 # ライブラリ
 emsdk/
 whisper.cpp/
+
+# ログファイルを無視
+*.log

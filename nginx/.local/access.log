@@ -204,3 +204,4 @@
 127.0.0.1 - seaman [06/May/2026:18:21:19 +0900] "POST /api/api/chat HTTP/2.0" 403 0 "https://seaman.local:8443/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
 127.0.0.1 - seaman [06/May/2026:18:22:26 +0900] "POST /api/api/chat HTTP/2.0" 403 0 "https://seaman.local:8443/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
 127.0.0.1 - seaman [06/May/2026:18:25:17 +0900] "POST /api/api/chat HTTP/2.0" 403 0 "https://seaman.local:8443/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+127.0.0.1 - seaman [06/May/2026:18:30:05 +0900] "POST /api/api/chat HTTP/2.0" 403 0 "https://seaman.local:8443/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
