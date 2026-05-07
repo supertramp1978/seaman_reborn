@@ -63,8 +63,11 @@ async function _showOpeningRoll() {
     rollEl.addEventListener('click', finish, { once: true });
     textEl.addEventListener('animationend', finish, { once: true });
 
-    // 次フレームで animation を開始（hidden → visible 後に適用）
-    requestAnimationFrame(() => textEl.classList.add('scrolling'));
+    // 次フレームで animation と背景フェードを同時開始
+    requestAnimationFrame(() => {
+      rollEl.classList.add('bg-transitioning');
+      textEl.classList.add('scrolling');
+    });
   });
 }
 

@@ -191,6 +191,9 @@ async function main() {
   await introPromise;
   await preloadPromise;
 
+  // タイトル・イントロ画面が終わったので水槽画面を表示
+  document.querySelector('.app').style.opacity = '1';
+
   // ── ステータス管理 ────────────────────────────────────────────────────────
   initStatus({ onWaterChangeEffect: triggerWaterChangeReaction });
 

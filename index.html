@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Seaman Modern</title>
 
+    <!-- Google Fonts: 手書き風日本語フォント -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Klee+One:wght@400;600&display=swap" rel="stylesheet">
+
     <!-- Three.js CDN importmap (Phase 3) -->
     <script type="importmap">
     {
@@ -102,46 +107,65 @@
       #opening-roll {
         position: absolute; inset: 0;
         overflow: hidden; cursor: pointer;
-        background: url('assets/images/opening-bg.png') center/cover no-repeat;
+        /* ジャングル背景（最下層） */
+        background: url('assets/images/jungle-bg.png') center/cover no-repeat;
       }
+      /* グラデーションオーバーレイ（上から2層目） */
       #opening-roll::before {
         content: '';
-        position: absolute; inset: 0;
+        position: absolute; inset: 0; z-index: 2;
         background: linear-gradient(
           to bottom,
-          rgba(0,0,0,0.85) 0%,
-          rgba(0,0,0,0.5)  40%,
-          rgba(0,0,0,0.5)  60%,
-          rgba(0,0,0,0.85) 100%
+          rgba(0,0,0,0.80) 0%,
+          rgba(0,0,0,0.40) 40%,
+          rgba(0,0,0,0.40) 60%,
+          rgba(0,0,0,0.80) 100%
         );
-        filter: sepia(0.5);
+        pointer-events: none;
+      }
+      /* 旧背景（opening-bg）を上に重ね、スクロール開始時にフェードアウト */
+      #opening-roll::after {
+        content: '';
+        position: absolute; inset: 0; z-index: 1;
+        background: url('assets/images/opening-bg.png') center/cover no-repeat;
+        filter: sepia(0.7) brightness(0.55);
+        opacity: 1;
+        transition: opacity 4s ease;
+        pointer-events: none;
+      }
+      #opening-roll.bg-transitioning::after {
+        opacity: 0;
       }
       #opening-roll.fade-out {
         animation: fadeOutOp 0.6s forwards;
       }
       .opening-roll-text {
-        position: relative;
-        width: min(680px, 84vw); margin: 0 auto;
-        padding: 2rem 2.5rem;
-        font-size: clamp(0.9rem, 2vw, 1.05rem);
-        line-height: 2.1; color: #e8dfc8;
+        position: relative; z-index: 3;
+        width: min(700px, 88vw); margin: 0 auto;
+        padding: 2.5rem 3rem;
+        font-family: 'Klee One', 'Hiragino Kaku Gothic ProN', serif;
+        font-size: clamp(2rem, 4.5vw, 3.2rem);
+        font-weight: 400;
+        line-height: 2.0; color: #f0e8d5;
         white-space: pre-line;
-        background: rgba(0,0,0,0.45);
-        border-radius: 4px;
+        background: rgba(0,0,0,0.38);
+        border-radius: 6px;
         transform: translateY(100vh);
+        text-shadow: 0 2px 8px rgba(0,0,0,0.7);
       }
       .opening-roll-text.scrolling {
-        animation: textScroll 38s linear forwards;
+        animation: textScroll 60s linear forwards;
       }
       .skip-hint {
         position: fixed; bottom: 1.5rem; right: 2rem;
         color: rgba(255,255,255,0.35); font-size: 0.78rem;
         pointer-events: none; letter-spacing: 0.1em;
+        z-index: 10;
       }
 
       @keyframes textScroll {
         0%   { transform: translateY(100vh); }
-        100% { transform: translateY(-220vh); }
+        100% { transform: translateY(-550vh); }
       }
       @keyframes fadeOutOp {
         to { opacity: 0; }
@@ -181,6 +205,8 @@
         height: 100vh;
         display: flex;
         flex-direction: column;
+        opacity: 0;
+        transition: opacity 0.5s;
       }
 
       /* ── 3D キャンバスラッパー ── */
