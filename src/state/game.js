@@ -9,8 +9,14 @@ export function getDefaultState() {
       mood: "neutral",
       trust: 0,
       age_days: 0,
-      stage: "adult", // Phase 1 は adult から開始
+      stage: "larva",
       last_interaction: new Date().toISOString(),
+      growth_points: 0,
+      stomach: 70,
+      water_quality: 100,
+      water_temp: 25.0,
+      last_water_change: new Date().toISOString(),
+      last_fed: new Date().toISOString(),
     },
     player: {
       name: null,

@@ -1,14 +1,13 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >
-  Seaman Demo — 単一 EC2 (g5.xlarge) + Nginx リバースプロキシ。
+  Seaman Demo — 単一 EC2 (g5.xlarge) + Nginx リバースプロキシ + Route 53 ドメイン設定。
   Ollama / VOICEVOX をローカルポートで起動し、Nginx 経由で HTTPS 公開。
-  デモ後は delete-stack で全リソース削除。
 
 # ─── パラメータ ────────────────────────────────────────────────────────
 Parameters:
   InstanceType:
     Type: String
-    Default: g5.xlarge
+    Default: g4dn.xlarge
     AllowedValues: [g4dn.xlarge, g5.xlarge, g6.xlarge]
     Description: GPU インスタンスタイプ
 
@@ -19,17 +18,17 @@ Parameters:
 
   AllowedCIDR:
     Type: String
-    Description: HTTPS 許可 CIDR (例 203.0.113.0/24 または 0.0.0.0/0)
+    Description: "HTTPS 許可 CIDR"
     Default: "0.0.0.0/0"
 
   DomainName:
     Type: String
-    Description: "サブドメイン例: seaman.example.com"
+    Description: "利用するドメイン名 (例: seaman.example.com)"
     Default: "seaman-reborn.com"
 
   CertbotEmail:
     Type: String
-    Description: Let's Encrypt 登録メールアドレス
+    Description: "Encrypt 登録メールアドレス"
     Default: "owngoal1978summer@gmail.com"
 
   GitRepoSSHUrl:
@@ -112,7 +111,7 @@ Resources:
   SecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: HTTPS certbot ACME 80
+      GroupDescription: "HTTPS certbot ACME 80"
       VpcId: !Ref VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -208,6 +207,26 @@ Resources:
       Roles:
         - !Ref IAMRole
 
+  # ── Route 53 (DNS) ──────────────────────────────────────────────────
+  # 追加：ホストゾーンの作成
+  HostedZone:
+    Type: AWS::Route53::HostedZone
+    Properties:
+      Name: !Ref DomainName
+      HostedZoneConfig:
+        Comment: !Sub "Hosted zone for ${DomainName}"
+
+  # 追加：Aレコード（Elastic IP を指す）
+  DNSRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZone
+      Name: !Ref DomainName
+      Type: A
+      TTL: '300'
+      ResourceRecords:
+        - !Ref ElasticIP
+
   # ── EC2 Instance ─────────────────────────────────────────────────────
   EC2Instance:
     Type: AWS::EC2::Instance
@@ -254,20 +273,13 @@ Resources:
           export SEAMAN_INSTANCE_ID="$INSTANCE_ID"
           EOF
 
-          # AWS CLI v2 インストール (Ubuntu 22.04 は v1 同梱、v2 に更新)
+          # AWS CLI v2 インストール
           apt-get update -qq
           apt-get install -y --no-install-recommends unzip curl
           curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
           unzip -q /tmp/awscliv2.zip -d /tmp/awscliv2 && /tmp/awscliv2/aws/install --update
 
-          echo "[UserData] 完了 — S3 にスクリプトをアップロード後、手動でセットアップを実行してください:"
-          echo "  # ① ローカルからスクリプトをアップロード"
-          echo "  aws s3 cp scripts/setup-phase1.sh s3://${ScriptsBucket}/scripts/setup-phase1.sh"
-          echo "  aws s3 cp scripts/setup-phase2.sh s3://${ScriptsBucket}/scripts/setup-phase2.sh"
-          echo "  # ② Phase 1 実行 (完了後 reboot)"
-          echo "  source /etc/seaman-env && aws s3 cp s3://${ScriptsBucket}/scripts/setup-phase1.sh /usr/local/bin/setup-phase1.sh && chmod +x /usr/local/bin/setup-phase1.sh && bash /usr/local/bin/setup-phase1.sh"
-          echo "  # ③ reboot 後に Phase 2 実行"
-          echo "  source /etc/seaman-env && aws s3 cp s3://${ScriptsBucket}/scripts/setup-phase2.sh /usr/local/bin/setup-phase2.sh && chmod +x /usr/local/bin/setup-phase2.sh && bash /usr/local/bin/setup-phase2.sh"
+          echo "[UserData] 完了"
       Tags:
         - Key: Name
           Value: Seaman-Demo
@@ -294,24 +306,24 @@ Resources:
 # ─── 出力 ──────────────────────────────────────────────────────────────
 Outputs:
   PublicIP:
-    Description: Elastic IP — Route53 A レコードにこの IP を設定してください
+    Description: Elastic IP
     Value: !Ref ElasticIP
 
-  InstanceId:
-    Description: EC2 インスタンス ID (SSM Session Manager 接続用)
-    Value: !Ref EC2Instance
+  HostedZoneId:
+    Description: Route 53 Hosted Zone ID
+    Value: !Ref HostedZone
 
-  SsmConnectCommand:
-    Description: SSM 接続コマンド (コピーしてそのまま実行)
-    Value: !Sub "aws ssm start-session --target ${EC2Instance} --region ${AWS::Region}"
+  NameServers:
+    Description: "ドメインレジストラに設定が必要なネームサーバー"
+    Value: !Join [", ", !GetAtt HostedZone.NameServers]
 
   WebUrl:
     Description: デモ URL
     Value: !Sub "https://${DomainName}"
 
-  ScriptsBucketName:
-    Description: スクリプト・アセット用 S3 バケット名
-    Value: !Ref ScriptsBucket
+  SsmConnectCommand:
+    Description: SSM 接続コマンド
+    Value: !Sub "aws ssm start-session --target ${EC2Instance} --region ${AWS::Region}"
 
   ManualSetupPhase1:
     Description: "Phase 1 実行コマンド (完了後 reboot)"
@@ -320,10 +332,3 @@ Outputs:
   ManualSetupPhase2:
     Description: "Phase 2 実行コマンド (reboot 後)"
     Value: "source /etc/seaman-env && bash /usr/local/bin/setup-phase2.sh"
-
-  UserDataLog:
-    Description: UserData ログ確認コマンド
-    Value: !Sub >-
-      aws ssm start-session --target ${EC2Instance} --region ${AWS::Region}
-      --document-name AWS-StartInteractiveCommand
-      --parameters command="tail -f /var/log/seaman-userdata.log"

@@ -39,18 +39,141 @@
         font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
       }
 
-      /* ── プリロードオーバーレイ ── */
-      #preload-overlay {
-        position: fixed; inset: 0;
-        background: var(--bg);
+      /* ── タイトル画面 ── */
+      #title-screen {
+        position: fixed; inset: 0; z-index: 95;
+        background: #000;
+        opacity: 0; transition: opacity 0.6s;
+      }
+      #title-screen.visible  { opacity: 1; }
+      #title-screen.fade-out { opacity: 0; pointer-events: none; }
+
+      /* ロゴ画面 */
+      #title-logo-screen {
+        position: absolute; inset: 0;
         display: flex; flex-direction: column;
         align-items: center; justify-content: center;
-        gap: 1rem; z-index: 100;
-        transition: opacity 0.4s;
+        gap: 1.5rem;
       }
-      #preload-overlay.hidden { opacity: 0; pointer-events: none; }
-      #preload-overlay p { color: var(--muted); font-size: 0.9rem; margin: 0; }
-      #preload-bar { width: min(360px, 80vw); height: 6px; border-radius: 3px; accent-color: var(--accent); }
+      .title-bg {
+        position: absolute; inset: 0;
+        background: url('assets/images/opening-bg.png') center/cover no-repeat;
+        filter: sepia(0.7) brightness(0.55);
+      }
+      .title-logo {
+        position: relative;
+        font-size: clamp(2.5rem, 8vw, 5rem);
+        font-weight: 900; letter-spacing: 0.2em;
+        color: #e0d5c0; text-shadow: 0 0 40px rgba(180,140,80,0.8);
+        margin: 0;
+        animation: logoFadeIn 2.5s ease-in forwards;
+      }
+      .title-sub {
+        position: relative;
+        font-size: clamp(0.9rem, 2.5vw, 1.4rem);
+        color: #a09070; letter-spacing: 0.4em;
+        margin: 0;
+        animation: logoFadeIn 3.5s ease-in forwards;
+      }
+      #title-start {
+        position: relative;
+        margin-top: 2rem;
+        padding: 0.8rem 3rem; border: 1px solid #a09070;
+        background: transparent; color: #e0d5c0;
+        font-size: 1.1rem; letter-spacing: 0.3em; cursor: pointer;
+        animation: logoFadeIn 4s ease-in forwards, pulse 2s ease-in-out 4s infinite;
+      }
+      #title-start:hover { background: rgba(160,144,112,0.2); }
+      #preload-status {
+        font-size: 0.72rem; color: var(--muted); letter-spacing: 0.05em;
+        margin: 0; min-height: 1.2em; text-align: center;
+      }
+
+      @keyframes logoFadeIn {
+        from { opacity: 0; transform: translateY(8px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes pulse {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(160,144,112,0); }
+        50%       { box-shadow: 0 0 0 6px rgba(160,144,112,0.3); }
+      }
+
+      /* オープニングロール */
+      #opening-roll {
+        position: absolute; inset: 0;
+        overflow: hidden; cursor: pointer;
+        background: url('assets/images/opening-bg.png') center/cover no-repeat;
+      }
+      #opening-roll::before {
+        content: '';
+        position: absolute; inset: 0;
+        background: linear-gradient(
+          to bottom,
+          rgba(0,0,0,0.85) 0%,
+          rgba(0,0,0,0.5)  40%,
+          rgba(0,0,0,0.5)  60%,
+          rgba(0,0,0,0.85) 100%
+        );
+        filter: sepia(0.5);
+      }
+      #opening-roll.fade-out {
+        animation: fadeOutOp 0.6s forwards;
+      }
+      .opening-roll-text {
+        position: relative;
+        width: min(680px, 84vw); margin: 0 auto;
+        padding: 2rem 2.5rem;
+        font-size: clamp(0.9rem, 2vw, 1.05rem);
+        line-height: 2.1; color: #e8dfc8;
+        white-space: pre-line;
+        background: rgba(0,0,0,0.45);
+        border-radius: 4px;
+        transform: translateY(100vh);
+      }
+      .opening-roll-text.scrolling {
+        animation: textScroll 38s linear forwards;
+      }
+      .skip-hint {
+        position: fixed; bottom: 1.5rem; right: 2rem;
+        color: rgba(255,255,255,0.35); font-size: 0.78rem;
+        pointer-events: none; letter-spacing: 0.1em;
+      }
+
+      @keyframes textScroll {
+        0%   { transform: translateY(100vh); }
+        100% { transform: translateY(-220vh); }
+      }
+      @keyframes fadeOutOp {
+        to { opacity: 0; }
+      }
+
+      /* ── 説明・注意書き画面 ── */
+      #intro-screen {
+        position: fixed; inset: 0; z-index: 94;
+        background: rgba(0,0,0,0.92);
+        display: flex; align-items: center; justify-content: center;
+        opacity: 0; transition: opacity 0.5s;
+      }
+      #intro-screen.visible  { opacity: 1; }
+      #intro-screen.fade-out { opacity: 0; pointer-events: none; }
+      .intro-content {
+        max-width: 520px; width: 90%;
+        display: flex; flex-direction: column; align-items: center; gap: 2rem;
+        text-align: center;
+      }
+      .intro-notice {
+        color: #c8c0b0; font-size: 1rem; line-height: 1.9;
+        border: 1px solid #444; border-radius: 6px;
+        padding: 1.8rem 2rem; margin: 0;
+        background: rgba(255,255,255,0.03);
+      }
+      #intro-proceed {
+        padding: 0.75rem 3.5rem; border: 1px solid #7a9e7a;
+        background: transparent; color: #a0c8a0;
+        font-size: 1rem; letter-spacing: 0.2em; cursor: pointer;
+        transition: background 0.2s;
+      }
+      #intro-proceed:hover { background: rgba(100,160,100,0.15); }
 
       /* ── 全体レイアウト ── */
       .app {
@@ -60,16 +183,54 @@
         flex-direction: column;
       }
 
-      /* ── 3D キャンバス ── */
-      #scene-canvas {
+      /* ── 3D キャンバスラッパー ── */
+      #canvas-wrapper {
+        position: relative;
         width: 100%;
         height: 60vh;
         min-height: 320px;
-        display: block;
         flex-shrink: 0;
+      }
+      #scene-canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
         cursor: crosshair;
         background: #050b14;
       }
+
+      /* ── ステータスパネル ── */
+      #status-panel {
+        position: absolute; top: 0.75rem; right: 0.75rem;
+        background: rgba(5, 11, 20, 0.82);
+        border: 1px solid rgba(42, 49, 58, 0.8);
+        border-radius: 8px; padding: 0.55rem 0.75rem;
+        font-size: 0.68rem; color: var(--muted);
+        min-width: 130px; backdrop-filter: blur(4px);
+        z-index: 10; display: flex; flex-direction: column; gap: 0.3rem;
+      }
+      .sp-row { display: flex; align-items: center; gap: 0.4rem; }
+      .sp-label { color: #5a6472; min-width: 3rem; flex-shrink: 0; }
+      .sp-bar-wrap { flex: 1; height: 5px; background: #1a2030; border-radius: 3px; overflow: hidden; }
+      .sp-bar { height: 100%; width: 0%; background: var(--accent); border-radius: 3px; transition: width 0.6s ease; }
+      .sp-bar-stomach { background: #f0a040; }
+      .sp-divider { height: 1px; background: rgba(42,49,58,0.6); margin: 0.1rem 0; }
+      .sp-actions { display: flex; gap: 0.4rem; margin-top: 0.1rem; }
+      .sp-btn {
+        flex: 1; padding: 0.25rem 0.3rem;
+        border: 1px solid var(--border); background: transparent;
+        color: var(--muted); font-size: 0.65rem; border-radius: 4px;
+        cursor: pointer; transition: background 0.15s;
+      }
+      .sp-btn:hover { background: rgba(255,255,255,0.06); }
+      #sp-mood[data-mood="happy"]   { color: var(--mic-on); }
+      #sp-mood[data-mood="grumpy"]  { color: #f08040; }
+      #sp-mood[data-mood="sad"]     { color: #6080c0; }
+      #sp-mood[data-mood="sleepy"]  { color: #807090; }
+      #sp-temp[data-hot="true"]     { color: #f06060; }
+      #sp-temp[data-cold="true"]    { color: #60a0f0; }
+      #sp-time[data-period="night"]   { color: #807090; }
+      #sp-time[data-period="morning"] { color: #f0c040; }
 
       /* ── チャットパネル ── */
       #chat-panel {
@@ -170,16 +331,70 @@
   </head>
   <body>
 
-    <!-- プリロードオーバーレイ -->
-    <div id="preload-overlay">
-      <p id="preload-msg">シーマンが目を覚ましている…</p>
-      <progress id="preload-bar" value="0" max="1"></progress>
-      <p id="preload-detail" style="font-size:0.75rem; color: #4a5568;"></p>
+    <!-- タイトル画面 -->
+    <div id="title-screen" hidden>
+      <!-- ロゴ画面 -->
+      <div id="title-logo-screen">
+        <div class="title-bg"></div>
+        <h1 class="title-logo">SEAMAN</h1>
+        <p class="title-sub">R E B O R N</p>
+        <button id="title-start">S T A R T</button>
+      </div>
+      <!-- オープニングロール（START 後に表示） -->
+      <div id="opening-roll" hidden>
+        <div class="opening-roll-text"></div>
+        <p class="skip-hint">クリックでスキップ</p>
+      </div>
+    </div>
+
+    <!-- 説明・注意書き画面 -->
+    <div id="intro-screen" hidden>
+      <div class="intro-content">
+        <p class="intro-notice">
+          シーマンの管理は非常にシビアです。
+        </p>
+        <p class="intro-notice">
+          シーマンは水中にいるため、あなたの声は届きにくいです。<br>
+          はっきりと言葉を短く切って喋ると<br>
+          シーマンに伝わりやすいかもしれません。<br><br>
+          シーマンは高い知能を持っているため、人間の文字を読むことができます。<br>
+          シーマンが言葉を正確に聞き取れていないと感じた時は、<br>
+          紙に書き出してシーマンに見せると正確に理解できるでしょう。
+        </p>
+        <button id="intro-proceed">は じ め る</button>
+        <p id="preload-status"></p>
+      </div>
     </div>
 
     <div class="app">
       <!-- 3D 水槽キャンバス（上部 60vh） -->
-      <canvas id="scene-canvas"></canvas>
+      <div id="canvas-wrapper">
+        <canvas id="scene-canvas"></canvas>
+        <div id="status-panel">
+          <div class="sp-row"><span class="sp-label">気分</span><span id="sp-mood">普通</span></div>
+          <div class="sp-row">
+            <span class="sp-label">信頼度</span>
+            <div class="sp-bar-wrap"><div id="sp-trust-bar" class="sp-bar"></div></div>
+          </div>
+          <div class="sp-row"><span class="sp-label">成長</span><span id="sp-stage">幼生</span></div>
+          <div class="sp-divider"></div>
+          <div class="sp-row">
+            <span class="sp-label">お腹</span>
+            <div class="sp-bar-wrap"><div id="sp-stomach-bar" class="sp-bar sp-bar-stomach"></div></div>
+          </div>
+          <div class="sp-row">
+            <span class="sp-label">水質</span>
+            <div class="sp-bar-wrap"><div id="sp-water-bar" class="sp-bar"></div></div>
+          </div>
+          <div class="sp-row"><span class="sp-label">水温</span><span id="sp-temp">25.0°C</span></div>
+          <div class="sp-row"><span class="sp-label">時刻帯</span><span id="sp-time">昼</span></div>
+          <div class="sp-divider"></div>
+          <div class="sp-actions">
+            <button id="water-change-btn" class="sp-btn">💧 水換え</button>
+            <button id="feed-btn" class="sp-btn">🐟 餌やり</button>
+          </div>
+        </div>
+      </div>
 
       <!-- チャットパネル（下部 40vh） -->
       <div id="chat-panel">

@@ -1,4 +1,4 @@
-import { overrideModelName } from "../config/env.js";
+import { overrideModelName, OLLAMA_URL, MODEL_NAME } from "../config/env.js";
 import { chatStore } from "./chat/store.js";
 import { initChatRenderer } from "./ui/chat-renderer.js";
 import { loadModel as loadSTT } from "./audio/stt.js";
@@ -9,10 +9,14 @@ import { wipeDB } from "./memory/db.js";
 import { initMemoryBus } from "./memory/memory-bus.js";
 import { initAquarium, startRenderLoop, getScene } from "./scene/aquarium.js";
 import { loadModel as loadSceneModel, getModel, getInnerModel, getMouthMorph } from "./scene/seaman-model.js";
-import { initSwimming, updateSwimming } from "./scene/swimming.js";
+import { initSwimming, updateSwimming, triggerWaterChangeReaction } from "./scene/swimming.js";
 import { initBubbles, updateBubbles } from "./scene/particles.js";
 import { initLipSync, updateLipSync } from "./scene/lip-sync.js";
 import { initInteraction } from "./scene/interaction.js";
+import { showTitleScreen } from "./scene/title-screen.js";
+import { showIntroScreen } from "./scene/intro-screen.js";
+import { initStatus, onConversation, onWaterChange, onFed, getStatusSnapshot } from "./state/seaman-status.js";
+import { initStatusPanel, renderStatus } from "./ui/status-panel.js";
 
 window.chatStore = chatStore;
 
@@ -32,10 +36,7 @@ async function main() {
   const sendBtn       = document.querySelector("#send");
   const micBtn        = document.querySelector("#mic-toggle");
   const voiceStateEl  = document.querySelector("#voice-state");
-  const overlayEl     = document.querySelector("#preload-overlay");
-  const preloadMsg    = document.querySelector("#preload-msg");
-  const preloadBar    = document.querySelector("#preload-bar");
-  const preloadDetail = document.querySelector("#preload-detail");
+  const preloadStatus = document.querySelector("#preload-status");
   const sceneCanvas   = document.querySelector("#scene-canvas");
 
   if (!logEl || !formEl || !inputEl || !sendBtn) {
@@ -112,88 +113,100 @@ async function main() {
     console.debug("[main] memory wiped");
   }
 
-  // ?voice=skip → オーバーレイを閉じてテキストのみで起動
+  // ?voice=skip → テキストのみで直接起動
   if (params.get("voice") === "skip") {
     if (sceneReady) {
       await loadSceneModel(getScene(), {});
       initInteraction(sceneCanvas, _camera3d, getInnerModel());
       initLipSync();
     }
-    dismissOverlay(overlayEl);
     return;
   }
 
-  // ── プリロード（音声 + 3D モデル）─────────────────────────────────────────
   let voiceReady = false;
+  const skipMemory = params.get("memory") === "skip";
 
-  try {
-    // 1. VAD 初期化
-    if (preloadMsg) preloadMsg.textContent = "VAD を初期化中…";
-    await initAudioBus();
+  // タイトル画面を即座に表示（プリロードはまだ開始しない）
+  await showTitleScreen();
 
-    // 2. Whisper モデルのロード
-    if (preloadMsg) preloadMsg.textContent = "Whisper モデルをロード中…";
-    await loadSTT({
-      onProgress: (n) => {
-        if (preloadBar) preloadBar.value = n;
-        if (preloadDetail) preloadDetail.textContent = `ggml-tiny.bin: ${(n * 100).toFixed(0)}%`;
-      },
-    });
+  // イントロ画面を表示しながら、プリロードと Ollama ウォームアップを並行開始
+  const introPromise = showIntroScreen();
 
-    // 3. 3D モデルのロード
-    const skipMemory = params.get("memory") === "skip";
-    if (sceneReady) {
-      if (preloadMsg) preloadMsg.textContent = "シーマンの体を読み込み中…";
-      if (preloadBar) preloadBar.value = 0;
-      await loadSceneModel(getScene(), {
-        onProgress: (n) => {
-          if (preloadBar) preloadBar.value = n;
-          if (preloadDetail) preloadDetail.textContent = `seaman.glb: ${(n * 100).toFixed(0)}%`;
-        },
+  _warmupOllama();
+
+  const setStatus = (msg) => { if (preloadStatus) preloadStatus.textContent = msg; };
+
+  const preloadPromise = (async () => {
+    try {
+      // 1. VAD 初期化
+      setStatus("VAD を初期化中…");
+      await initAudioBus();
+
+      // 2. Whisper モデルのロード
+      setStatus("Whisper モデルをロード中…");
+      await loadSTT({
+        onProgress: (n) => setStatus(`Whisper: ${(n * 100).toFixed(0)}%`),
       });
-      initInteraction(sceneCanvas, _camera3d, getInnerModel());
-      initLipSync();
-    }
 
-    // 4. Embedder（Transformers.js + multilingual-e5-small）
-    if (!skipMemory) {
-      if (preloadMsg) preloadMsg.textContent = "シーマンの記憶を読み込み中…";
-      if (preloadBar) preloadBar.value = 0;
-      await loadEmbedder({
-        onProgress: (n) => {
-          if (preloadBar) preloadBar.value = n;
-          if (preloadDetail) preloadDetail.textContent = `multilingual-e5-small: ${(n * 100).toFixed(0)}%`;
-        },
-      });
-      await initMemoryBus();
-    }
-
-    if (micBtn) micBtn.disabled = false;
-    if (preloadMsg) preloadMsg.textContent = "シーマンが目を覚ました。";
-    voiceReady = true;
-    console.debug("[main] voice ready  crossOriginIsolated:", self.crossOriginIsolated);
-
-  } catch (e) {
-    console.warn("[main] プリロード失敗:", e.message);
-    if (preloadMsg) preloadMsg.textContent = "音声機能を利用できません（テキストモードで続行）";
-    if (preloadBar) preloadBar.style.display = "none";
-    // embedder 失敗 → memory-bus がフォールバックで空 context を返すため UI は変えない
-    // ただし記憶機能が使えないことを 1 度だけ通知
-    chatStore.emit("error", { id: null, error: Object.assign(new Error(e.message), { kind: "memory_unavailable" }) });
-
-    // 音声が失敗しても 3D モデルを試みる
-    if (sceneReady && !getModel()) {
-      try {
-        await loadSceneModel(getScene(), {});
+      // 3. 3D モデルのロード
+      if (sceneReady) {
+        setStatus("シーマンの体を読み込み中…");
+        await loadSceneModel(getScene(), {
+          onProgress: (n) => setStatus(`3Dモデル: ${(n * 100).toFixed(0)}%`),
+        });
         initInteraction(sceneCanvas, _camera3d, getInnerModel());
         initLipSync();
-      } catch {
-        // モデルロード失敗は無視（プレースホルダーで継続）
+      }
+
+      // 4. Embedder（Transformers.js + multilingual-e5-small）
+      if (!skipMemory) {
+        setStatus("シーマンの記憶を読み込み中…");
+        await loadEmbedder({
+          onProgress: (n) => setStatus(`記憶モデル: ${(n * 100).toFixed(0)}%`),
+        });
+        await initMemoryBus();
+      }
+
+      if (micBtn) micBtn.disabled = false;
+      voiceReady = true;
+      setStatus("");
+      console.debug("[main] voice ready  crossOriginIsolated:", self.crossOriginIsolated);
+
+    } catch (e) {
+      console.warn("[main] プリロード失敗:", e.message);
+      setStatus("音声機能を利用できません");
+      chatStore.emit("error", { id: null, error: Object.assign(new Error(e.message), { kind: "memory_unavailable" }) });
+
+      if (sceneReady && !getModel()) {
+        try {
+          await loadSceneModel(getScene(), {});
+          initInteraction(sceneCanvas, _camera3d, getInnerModel());
+          initLipSync();
+        } catch { /* ignore */ }
       }
     }
-  } finally {
-    setTimeout(() => dismissOverlay(overlayEl), voiceReady ? 600 : 2000);
-  }
+  })();
+
+  // ユーザーが説明を読み終えるまで待ち、その後プリロード完了も待つ
+  await introPromise;
+  await preloadPromise;
+
+  // ── ステータス管理 ────────────────────────────────────────────────────────
+  initStatus({ onWaterChangeEffect: triggerWaterChangeReaction });
+
+  initStatusPanel({
+    onWaterChange: () => { onWaterChange(); renderStatus(getStatusSnapshot()); },
+    onFed:         () => { onFed();         renderStatus(getStatusSnapshot()); },
+  });
+
+  renderStatus(getStatusSnapshot());
+
+  chatStore.on('assistantDone', () => {
+    onConversation();
+    renderStatus(getStatusSnapshot());
+  });
+
+  setInterval(() => renderStatus(getStatusSnapshot()), 60_000);
 
   // ── マイクボタン ─────────────────────────────────────────────────────────
   if (micBtn) {
@@ -222,10 +235,18 @@ async function main() {
   }
 }
 
-function dismissOverlay(overlayEl) {
-  if (!overlayEl) return;
-  overlayEl.classList.add("hidden");
-  setTimeout(() => overlayEl.remove(), 500);
+// Ollama に最小リクエストを投げてモデルを VRAM に展開しておく（遅延隠蔽）
+function _warmupOllama() {
+  fetch(`${OLLAMA_URL}/api/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: MODEL_NAME,
+      messages: [{ role: "user", content: "hi" }],
+      stream: false,
+      options: { num_predict: 1 },
+    }),
+  }).catch(() => {});
 }
 
 if (document.readyState === "loading") {
