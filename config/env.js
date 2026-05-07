@@ -22,7 +22,7 @@ export const OLLAMA_OPTIONS = {
 export const VOICEVOX_URL = isLocal ? "http://localhost:50021" : "/voicevox";
 
 // スピーカー ID: /speakers エンドポイントで確認して変更
-export const VOICEVOX_SPEAKER_ID = 66;
+export const VOICEVOX_SPEAKER_ID = 21;
 
 // URL クエリ ?model=... で実行時上書きするためのフック。main.js から呼ばれる。
 export function overrideModelName(name) {
