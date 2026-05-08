@@ -9,6 +9,8 @@ original_files/
 tests/
 debug/
 docs/
+nginx/
+
 
 # 工程管理
 tasks/
