@@ -15,8 +15,11 @@ import { initLipSync, updateLipSync } from "./scene/lip-sync.js";
 import { initInteraction } from "./scene/interaction.js";
 import { showTitleScreen } from "./scene/title-screen.js";
 import { showIntroScreen } from "./scene/intro-screen.js";
-import { initStatus, onConversation, onWaterChange, onFed, getStatusSnapshot } from "./state/seaman-status.js";
+import { initStatus, onConversation, startWaterChange, stopWaterChange, onFed, getStatusSnapshot, statusEvents } from "./state/seaman-status.js";
+import { initStaticVoice, triggerVoiceEvent, checkKeywordAndTrigger } from "./audio/static-voice.js";
 import { initStatusPanel, renderStatus } from "./ui/status-panel.js";
+import { se } from "./audio/se.js";
+import { initFood, spawnFood, updateFood } from "./scene/food.js";
 
 window.chatStore = chatStore;
 
@@ -61,6 +64,16 @@ async function main() {
   formEl.addEventListener("submit",  resumeOnce, { once: true });
   inputEl.addEventListener("keydown", resumeOnce, { once: true });
 
+  // 会話履歴トグル
+  const chatToggleBtn    = document.querySelector('#chat-toggle-btn');
+  const chatLogWrapper   = document.querySelector('#chat-log-wrapper');
+  if (chatToggleBtn && chatLogWrapper) {
+    chatToggleBtn.addEventListener('click', () => {
+      const open = chatLogWrapper.classList.toggle('open');
+      chatToggleBtn.textContent = open ? '会話履歴 ▲' : '会話履歴 ▼';
+    });
+  }
+
   formEl.addEventListener("submit", (ev) => { ev.preventDefault(); submitText(); });
   inputEl.addEventListener("keydown", (ev) => {
     if (ev.key === "Enter" && !ev.shiftKey && !ev.isComposing) {
@@ -97,6 +110,7 @@ async function main() {
         updateSwimming(getModel(), now / 1000, chatStore.getVoiceState());
         updateBubbles(dt, now / 1000);
         updateLipSync(getMouthMorph(), dt);
+        updateFood(dt);
       });
     } catch (e3d) {
       console.error("[main] WebGL init failed:", e3d.message);
@@ -195,11 +209,31 @@ async function main() {
   document.querySelector('.app').style.opacity = '1';
 
   // ── ステータス管理 ────────────────────────────────────────────────────────
+  const isFirstVisit = !localStorage.getItem('seaman_visited');
+  localStorage.setItem('seaman_visited', '1');
+
   initStatus({ onWaterChangeEffect: triggerWaterChangeReaction });
+  if (sceneReady) initFood(getScene());
+
+  await se.loadBuffer('water_change', 'assets/audio/se_water_change.mp3');
+  await se.loadBuffer('feed',         'assets/audio/se_feed.mp3');
 
   initStatusPanel({
-    onWaterChange: () => { onWaterChange(); renderStatus(getStatusSnapshot()); },
-    onFed:         () => { onFed();         renderStatus(getStatusSnapshot()); },
+    onWaterChangeStart: () => {
+      startWaterChange(() => renderStatus(getStatusSnapshot()));
+      se.startAmbient('water_change', { volume: 0.7 });
+    },
+    onWaterChangeStop: () => {
+      stopWaterChange();
+      se.stopAmbient('water_change');
+      renderStatus(getStatusSnapshot());
+    },
+    onFed: () => {
+      onFed();
+      se.playOneShot('feed', { volume: 0.8 });
+      spawnFood();
+      renderStatus(getStatusSnapshot());
+    },
   });
 
   renderStatus(getStatusSnapshot());
@@ -210,6 +244,28 @@ async function main() {
   });
 
   setInterval(() => renderStatus(getStatusSnapshot()), 60_000);
+
+  // ── 静的会話 ──────────────────────────────────────────────────────────────
+  await initStaticVoice();
+
+  // statusEvents → 音声イベント配線
+  statusEvents.on('water_temp_high',            () => triggerVoiceEvent('water_temp_high'));
+  statusEvents.on('water_temp_low',             () => triggerVoiceEvent('water_temp_low'));
+  statusEvents.on('water_quality_bad',          () => triggerVoiceEvent('water_quality_bad'));
+  statusEvents.on('water_quality_good',         () => triggerVoiceEvent('water_quality_good'));
+  statusEvents.on('mood_up',                    () => triggerVoiceEvent('mood_up'));
+  statusEvents.on('mood_down',                  () => triggerVoiceEvent('mood_down'));
+  statusEvents.on('trust_up',                   () => triggerVoiceEvent('trust_up'));
+  statusEvents.on('trust_down',                 () => triggerVoiceEvent('trust_down'));
+  statusEvents.on('stage_larva_to_juvenile',    () => triggerVoiceEvent('stage_larva_to_juvenile'));
+  statusEvents.on('stage_juvenile_to_adult',    () => triggerVoiceEvent('stage_juvenile_to_adult'));
+  statusEvents.on('stage_adult_to_new_species', () => triggerVoiceEvent('stage_adult_to_new_species'));
+
+  // キーワード検出
+  chatStore.on('userMessage', ({ content }) => checkKeywordAndTrigger(content));
+
+  // ゲーム開始/再開（force:true でクールダウン無視）
+  triggerVoiceEvent(isFirstVisit ? 'game_start' : 'game_resume', { force: true });
 
   // ── マイクボタン ─────────────────────────────────────────────────────────
   if (micBtn) {

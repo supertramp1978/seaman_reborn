@@ -213,7 +213,7 @@
       #canvas-wrapper {
         position: relative;
         width: 100%;
-        height: 60vh;
+        height: 65vh;
         min-height: 320px;
         flex-shrink: 0;
       }
@@ -228,27 +228,39 @@
       /* ── ステータスパネル ── */
       #status-panel {
         position: absolute; top: 0.75rem; right: 0.75rem;
-        background: rgba(5, 11, 20, 0.82);
+        background: rgba(5, 11, 20, 0.85);
         border: 1px solid rgba(42, 49, 58, 0.8);
-        border-radius: 8px; padding: 0.55rem 0.75rem;
-        font-size: 0.68rem; color: var(--muted);
-        min-width: 130px; backdrop-filter: blur(4px);
-        z-index: 10; display: flex; flex-direction: column; gap: 0.3rem;
+        border-radius: 8px; padding: 0.7rem 1rem;
+        font-size: 0.85rem; color: var(--muted);
+        min-width: 170px; backdrop-filter: blur(6px);
+        z-index: 10; display: flex; flex-direction: column; gap: 0.4rem;
       }
-      .sp-row { display: flex; align-items: center; gap: 0.4rem; }
-      .sp-label { color: #5a6472; min-width: 3rem; flex-shrink: 0; }
-      .sp-bar-wrap { flex: 1; height: 5px; background: #1a2030; border-radius: 3px; overflow: hidden; }
-      .sp-bar { height: 100%; width: 0%; background: var(--accent); border-radius: 3px; transition: width 0.6s ease; }
+      .sp-header { display: flex; justify-content: flex-end; margin-bottom: 0.1rem; }
+      #sp-help-btn {
+        background: transparent; border: 1px solid #3a4452;
+        color: #5a6472; font-size: 0.72rem;
+        width: 1.4rem; height: 1.4rem;
+        border-radius: 50%; cursor: pointer; line-height: 1;
+        display: flex; align-items: center; justify-content: center;
+        transition: color 0.15s, border-color 0.15s;
+      }
+      #sp-help-btn:hover { color: var(--accent); border-color: var(--accent); }
+      .sp-row { display: flex; align-items: center; gap: 0.5rem; }
+      .sp-label { color: #5a6472; min-width: 3.5rem; flex-shrink: 0; }
+      .sp-bar-wrap { flex: 1; height: 9px; background: #1a2030; border-radius: 5px; overflow: hidden; }
+      .sp-bar { height: 100%; width: 0%; background: var(--accent); border-radius: 5px; transition: width 0.3s ease; }
       .sp-bar-stomach { background: #f0a040; }
-      .sp-divider { height: 1px; background: rgba(42,49,58,0.6); margin: 0.1rem 0; }
-      .sp-actions { display: flex; gap: 0.4rem; margin-top: 0.1rem; }
+      .sp-divider { height: 1px; background: rgba(42,49,58,0.6); margin: 0.15rem 0; }
+      .sp-actions { display: flex; gap: 0.5rem; margin-top: 0.15rem; }
       .sp-btn {
-        flex: 1; padding: 0.25rem 0.3rem;
+        flex: 1; padding: 0.4rem 0.5rem;
         border: 1px solid var(--border); background: transparent;
-        color: var(--muted); font-size: 0.65rem; border-radius: 4px;
+        color: var(--muted); font-size: 0.8rem; border-radius: 5px;
         cursor: pointer; transition: background 0.15s;
+        user-select: none;
       }
-      .sp-btn:hover { background: rgba(255,255,255,0.06); }
+      .sp-btn:hover    { background: rgba(255,255,255,0.06); }
+      .sp-btn:active   { background: rgba(255,255,255,0.12); }
       #sp-mood[data-mood="happy"]   { color: var(--mic-on); }
       #sp-mood[data-mood="grumpy"]  { color: #f08040; }
       #sp-mood[data-mood="sad"]     { color: #6080c0; }
@@ -257,6 +269,25 @@
       #sp-temp[data-cold="true"]    { color: #60a0f0; }
       #sp-time[data-period="night"]   { color: #807090; }
       #sp-time[data-period="morning"] { color: #f0c040; }
+
+      /* ── ヘルプポップアップ ── */
+      #status-help-popup {
+        display: none;
+        position: absolute; top: 0.75rem; right: calc(170px + 1.5rem);
+        background: rgba(10, 16, 28, 0.95);
+        border: 1px solid rgba(42, 49, 58, 0.9);
+        border-radius: 8px; padding: 1rem 1.1rem;
+        font-size: 0.78rem; color: var(--text);
+        width: 220px; backdrop-filter: blur(8px);
+        z-index: 11; line-height: 1.7;
+      }
+      #status-help-popup.visible { display: block; }
+      .sp-help-title {
+        font-size: 0.72rem; font-weight: 600;
+        color: var(--accent); margin-bottom: 0.5rem;
+      }
+      .sp-help-item { margin-bottom: 0.45rem; }
+      .sp-help-item strong { color: #c8d4e0; }
 
       /* ── チャットパネル ── */
       #chat-panel {
@@ -272,9 +303,24 @@
         min-height: 200px;
       }
 
+      /* ── チャットログ折りたたみ ── */
+      #chat-log-wrapper {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.35s ease;
+      }
+      #chat-log-wrapper.open { max-height: 400px; overflow-y: auto; }
+
       /* ── ヘッダー ── */
       header { display: flex; justify-content: space-between; align-items: center; }
       header h1 { font-size: 1.05rem; margin: 0; font-weight: 600; }
+      #chat-toggle-btn {
+        padding: 0.2rem 0.75rem; border-radius: 6px;
+        border: 1px solid var(--border); background: transparent;
+        color: var(--muted); font-size: 0.75rem; cursor: pointer;
+        transition: color 0.15s, border-color 0.15s;
+      }
+      #chat-toggle-btn:hover { color: var(--accent); border-color: var(--accent); }
 
       /* ── ボイス状態インジケーター ── */
       #voice-state {
@@ -397,6 +443,9 @@
       <div id="canvas-wrapper">
         <canvas id="scene-canvas"></canvas>
         <div id="status-panel">
+          <div class="sp-header">
+            <button id="sp-help-btn" title="各ステータスの説明">?</button>
+          </div>
           <div class="sp-row"><span class="sp-label">気分</span><span id="sp-mood">普通</span></div>
           <div class="sp-row">
             <span class="sp-label">信頼度</span>
@@ -420,17 +469,34 @@
             <button id="feed-btn" class="sp-btn">🐟 餌やり</button>
           </div>
         </div>
+
+        <!-- ヘルプポップアップ -->
+        <div id="status-help-popup">
+          <div class="sp-help-title">ステータス説明</div>
+          <div class="sp-help-item"><strong>気分</strong>：信頼度・空腹・水質に連動。夜は必ず眠い</div>
+          <div class="sp-help-item"><strong>信頼度</strong>：会話・水換えで上昇。放置・汚水で下降</div>
+          <div class="sp-help-item"><strong>成長段階</strong>：幼生→幼魚→シーマン→リボーン。餌と水質で成長</div>
+          <div class="sp-help-item"><strong>お腹</strong>：時間で減少。低いと機嫌が悪くなる</div>
+          <div class="sp-help-item"><strong>水質</strong>：時間で悪化。低いと悲しくなる</div>
+          <div class="sp-help-item"><strong>水温</strong>：外気温に連動。18〜32°C が適温</div>
+          <div class="sp-help-item"><strong>時刻帯</strong>：夜は眠くなり会話が鈍くなる</div>
+        </div>
       </div>
 
       <!-- チャットパネル（下部 40vh） -->
       <div id="chat-panel">
         <header>
-          <h1>Seaman Modern</h1>
-          <span id="voice-state">idle</span>
+          <h1>話しかけてみよう</h1>
+          <div style="display:flex;gap:0.5rem;align-items:center;">
+            <button id="chat-toggle-btn" type="button">会話履歴 ▼</button>
+            <span id="voice-state">idle</span>
+          </div>
         </header>
 
-        <div id="chat-log" aria-live="polite"></div>
-        <div id="thinking" hidden aria-hidden="true"></div>
+        <div id="chat-log-wrapper">
+          <div id="chat-log" aria-live="polite"></div>
+          <div id="thinking" hidden aria-hidden="true"></div>
+        </div>
 
         <form id="input-form" autocomplete="off">
           <textarea
