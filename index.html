@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Seaman Modern</title>
 
+    <!-- Google Fonts: 手書き風日本語フォント -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Klee+One:wght@400;600&display=swap" rel="stylesheet">
+
     <!-- Three.js CDN importmap (Phase 3) -->
     <script type="importmap">
     {
@@ -39,18 +44,160 @@
         font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
       }
 
-      /* ── プリロードオーバーレイ ── */
-      #preload-overlay {
-        position: fixed; inset: 0;
-        background: var(--bg);
+      /* ── タイトル画面 ── */
+      #title-screen {
+        position: fixed; inset: 0; z-index: 95;
+        background: #000;
+        opacity: 0; transition: opacity 0.6s;
+      }
+      #title-screen.visible  { opacity: 1; }
+      #title-screen.fade-out { opacity: 0; pointer-events: none; }
+
+      /* ロゴ画面 */
+      #title-logo-screen {
+        position: absolute; inset: 0;
         display: flex; flex-direction: column;
         align-items: center; justify-content: center;
-        gap: 1rem; z-index: 100;
-        transition: opacity 0.4s;
+        gap: 1.5rem;
       }
-      #preload-overlay.hidden { opacity: 0; pointer-events: none; }
-      #preload-overlay p { color: var(--muted); font-size: 0.9rem; margin: 0; }
-      #preload-bar { width: min(360px, 80vw); height: 6px; border-radius: 3px; accent-color: var(--accent); }
+      .title-bg {
+        position: absolute; inset: 0;
+        background: url('assets/images/opening-bg.png') center/cover no-repeat;
+        filter: sepia(0.7) brightness(0.55);
+      }
+      .title-logo {
+        position: relative;
+        font-size: clamp(2.5rem, 8vw, 5rem);
+        font-weight: 900; letter-spacing: 0.2em;
+        color: #e0d5c0; text-shadow: 0 0 40px rgba(180,140,80,0.8);
+        margin: 0;
+        animation: logoFadeIn 2.5s ease-in forwards;
+      }
+      .title-sub {
+        position: relative;
+        font-size: clamp(0.9rem, 2.5vw, 1.4rem);
+        color: #a09070; letter-spacing: 0.4em;
+        margin: 0;
+        animation: logoFadeIn 3.5s ease-in forwards;
+      }
+      #title-start {
+        position: relative;
+        margin-top: 2rem;
+        padding: 0.8rem 3rem; border: 1px solid #a09070;
+        background: transparent; color: #e0d5c0;
+        font-size: 1.1rem; letter-spacing: 0.3em; cursor: pointer;
+        animation: logoFadeIn 4s ease-in forwards, pulse 2s ease-in-out 4s infinite;
+      }
+      #title-start:hover { background: rgba(160,144,112,0.2); }
+      #preload-status {
+        font-size: 0.72rem; color: var(--muted); letter-spacing: 0.05em;
+        margin: 0; min-height: 1.2em; text-align: center;
+      }
+
+      @keyframes logoFadeIn {
+        from { opacity: 0; transform: translateY(8px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes pulse {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(160,144,112,0); }
+        50%       { box-shadow: 0 0 0 6px rgba(160,144,112,0.3); }
+      }
+
+      /* オープニングロール */
+      #opening-roll {
+        position: absolute; inset: 0;
+        overflow: hidden; cursor: pointer;
+        /* ジャングル背景（最下層） */
+        background: url('assets/images/jungle-bg.png') center/cover no-repeat;
+      }
+      /* グラデーションオーバーレイ（上から2層目） */
+      #opening-roll::before {
+        content: '';
+        position: absolute; inset: 0; z-index: 2;
+        background: linear-gradient(
+          to bottom,
+          rgba(0,0,0,0.80) 0%,
+          rgba(0,0,0,0.40) 40%,
+          rgba(0,0,0,0.40) 60%,
+          rgba(0,0,0,0.80) 100%
+        );
+        pointer-events: none;
+      }
+      /* 旧背景（opening-bg）を上に重ね、スクロール開始時にフェードアウト */
+      #opening-roll::after {
+        content: '';
+        position: absolute; inset: 0; z-index: 1;
+        background: url('assets/images/opening-bg.png') center/cover no-repeat;
+        filter: sepia(0.7) brightness(0.55);
+        opacity: 1;
+        transition: opacity 4s ease;
+        pointer-events: none;
+      }
+      #opening-roll.bg-transitioning::after {
+        opacity: 0;
+      }
+      #opening-roll.fade-out {
+        animation: fadeOutOp 0.6s forwards;
+      }
+      .opening-roll-text {
+        position: relative; z-index: 3;
+        width: min(700px, 88vw); margin: 0 auto;
+        padding: 2.5rem 3rem;
+        font-family: 'Klee One', 'Hiragino Kaku Gothic ProN', serif;
+        font-size: clamp(2rem, 4.5vw, 3.2rem);
+        font-weight: 400;
+        line-height: 2.0; color: #f0e8d5;
+        white-space: pre-line;
+        background: rgba(0,0,0,0.38);
+        border-radius: 6px;
+        transform: translateY(100vh);
+        text-shadow: 0 2px 8px rgba(0,0,0,0.7);
+      }
+      .opening-roll-text.scrolling {
+        animation: textScroll 60s linear forwards;
+      }
+      .skip-hint {
+        position: fixed; bottom: 1.5rem; right: 2rem;
+        color: rgba(255,255,255,0.35); font-size: 0.78rem;
+        pointer-events: none; letter-spacing: 0.1em;
+        z-index: 10;
+      }
+
+      @keyframes textScroll {
+        0%   { transform: translateY(100vh); }
+        100% { transform: translateY(-550vh); }
+      }
+      @keyframes fadeOutOp {
+        to { opacity: 0; }
+      }
+
+      /* ── 説明・注意書き画面 ── */
+      #intro-screen {
+        position: fixed; inset: 0; z-index: 94;
+        background: rgba(0,0,0,0.92);
+        display: flex; align-items: center; justify-content: center;
+        opacity: 0; transition: opacity 0.5s;
+      }
+      #intro-screen.visible  { opacity: 1; }
+      #intro-screen.fade-out { opacity: 0; pointer-events: none; }
+      .intro-content {
+        max-width: 520px; width: 90%;
+        display: flex; flex-direction: column; align-items: center; gap: 2rem;
+        text-align: center;
+      }
+      .intro-notice {
+        color: #c8c0b0; font-size: 1rem; line-height: 1.9;
+        border: 1px solid #444; border-radius: 6px;
+        padding: 1.8rem 2rem; margin: 0;
+        background: rgba(255,255,255,0.03);
+      }
+      #intro-proceed {
+        padding: 0.75rem 3.5rem; border: 1px solid #7a9e7a;
+        background: transparent; color: #a0c8a0;
+        font-size: 1rem; letter-spacing: 0.2em; cursor: pointer;
+        transition: background 0.2s;
+      }
+      #intro-proceed:hover { background: rgba(100,160,100,0.15); }
 
       /* ── 全体レイアウト ── */
       .app {
@@ -58,18 +205,89 @@
         height: 100vh;
         display: flex;
         flex-direction: column;
+        opacity: 0;
+        transition: opacity 0.5s;
       }
 
-      /* ── 3D キャンバス ── */
+      /* ── 3D キャンバスラッパー ── */
+      #canvas-wrapper {
+        position: relative;
+        width: 100%;
+        height: 65vh;
+        min-height: 320px;
+        flex-shrink: 0;
+      }
       #scene-canvas {
         width: 100%;
-        height: 60vh;
-        min-height: 320px;
+        height: 100%;
         display: block;
-        flex-shrink: 0;
         cursor: crosshair;
         background: #050b14;
       }
+
+      /* ── ステータスパネル ── */
+      #status-panel {
+        position: absolute; top: 0.75rem; right: 0.75rem;
+        background: rgba(5, 11, 20, 0.85);
+        border: 1px solid rgba(42, 49, 58, 0.8);
+        border-radius: 8px; padding: 0.7rem 1rem;
+        font-size: 0.85rem; color: var(--muted);
+        min-width: 170px; backdrop-filter: blur(6px);
+        z-index: 10; display: flex; flex-direction: column; gap: 0.4rem;
+      }
+      .sp-header { display: flex; justify-content: flex-end; margin-bottom: 0.1rem; }
+      #sp-help-btn {
+        background: transparent; border: 1px solid #3a4452;
+        color: #5a6472; font-size: 0.72rem;
+        width: 1.4rem; height: 1.4rem;
+        border-radius: 50%; cursor: pointer; line-height: 1;
+        display: flex; align-items: center; justify-content: center;
+        transition: color 0.15s, border-color 0.15s;
+      }
+      #sp-help-btn:hover { color: var(--accent); border-color: var(--accent); }
+      .sp-row { display: flex; align-items: center; gap: 0.5rem; }
+      .sp-label { color: #5a6472; min-width: 3.5rem; flex-shrink: 0; }
+      .sp-bar-wrap { flex: 1; height: 9px; background: #1a2030; border-radius: 5px; overflow: hidden; }
+      .sp-bar { height: 100%; width: 0%; background: var(--accent); border-radius: 5px; transition: width 0.3s ease; }
+      .sp-bar-stomach { background: #f0a040; }
+      .sp-divider { height: 1px; background: rgba(42,49,58,0.6); margin: 0.15rem 0; }
+      .sp-actions { display: flex; gap: 0.5rem; margin-top: 0.15rem; }
+      .sp-btn {
+        flex: 1; padding: 0.4rem 0.5rem;
+        border: 1px solid var(--border); background: transparent;
+        color: var(--muted); font-size: 0.8rem; border-radius: 5px;
+        cursor: pointer; transition: background 0.15s;
+        user-select: none;
+      }
+      .sp-btn:hover    { background: rgba(255,255,255,0.06); }
+      .sp-btn:active   { background: rgba(255,255,255,0.12); }
+      #sp-mood[data-mood="happy"]   { color: var(--mic-on); }
+      #sp-mood[data-mood="grumpy"]  { color: #f08040; }
+      #sp-mood[data-mood="sad"]     { color: #6080c0; }
+      #sp-mood[data-mood="sleepy"]  { color: #807090; }
+      #sp-temp[data-hot="true"]     { color: #f06060; }
+      #sp-temp[data-cold="true"]    { color: #60a0f0; }
+      #sp-time[data-period="night"]   { color: #807090; }
+      #sp-time[data-period="morning"] { color: #f0c040; }
+
+      /* ── ヘルプポップアップ ── */
+      #status-help-popup {
+        display: none;
+        position: absolute; top: 0.75rem; right: calc(170px + 1.5rem);
+        background: rgba(10, 16, 28, 0.95);
+        border: 1px solid rgba(42, 49, 58, 0.9);
+        border-radius: 8px; padding: 1rem 1.1rem;
+        font-size: 0.78rem; color: var(--text);
+        width: 220px; backdrop-filter: blur(8px);
+        z-index: 11; line-height: 1.7;
+      }
+      #status-help-popup.visible { display: block; }
+      .sp-help-title {
+        font-size: 0.72rem; font-weight: 600;
+        color: var(--accent); margin-bottom: 0.5rem;
+      }
+      .sp-help-item { margin-bottom: 0.45rem; }
+      .sp-help-item strong { color: #c8d4e0; }
 
       /* ── チャットパネル ── */
       #chat-panel {
@@ -85,9 +303,24 @@
         min-height: 200px;
       }
 
+      /* ── チャットログ折りたたみ ── */
+      #chat-log-wrapper {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.35s ease;
+      }
+      #chat-log-wrapper.open { max-height: 400px; overflow-y: auto; }
+
       /* ── ヘッダー ── */
       header { display: flex; justify-content: space-between; align-items: center; }
       header h1 { font-size: 1.05rem; margin: 0; font-weight: 600; }
+      #chat-toggle-btn {
+        padding: 0.2rem 0.75rem; border-radius: 6px;
+        border: 1px solid var(--border); background: transparent;
+        color: var(--muted); font-size: 0.75rem; cursor: pointer;
+        transition: color 0.15s, border-color 0.15s;
+      }
+      #chat-toggle-btn:hover { color: var(--accent); border-color: var(--accent); }
 
       /* ── ボイス状態インジケーター ── */
       #voice-state {
@@ -170,26 +403,100 @@
   </head>
   <body>
 
-    <!-- プリロードオーバーレイ -->
-    <div id="preload-overlay">
-      <p id="preload-msg">シーマンが目を覚ましている…</p>
-      <progress id="preload-bar" value="0" max="1"></progress>
-      <p id="preload-detail" style="font-size:0.75rem; color: #4a5568;"></p>
+    <!-- タイトル画面 -->
+    <div id="title-screen" hidden>
+      <!-- ロゴ画面 -->
+      <div id="title-logo-screen">
+        <div class="title-bg"></div>
+        <h1 class="title-logo">SEAMAN</h1>
+        <p class="title-sub">R E B O R N</p>
+        <button id="title-start">S T A R T</button>
+      </div>
+      <!-- オープニングロール（START 後に表示） -->
+      <div id="opening-roll" hidden>
+        <div class="opening-roll-text"></div>
+        <p class="skip-hint">クリックでスキップ</p>
+      </div>
+    </div>
+
+    <!-- 説明・注意書き画面 -->
+    <div id="intro-screen" hidden>
+      <div class="intro-content">
+        <p class="intro-notice">
+          シーマンの管理は非常にシビアです。
+        </p>
+        <p class="intro-notice">
+          シーマンは水中にいるため、あなたの声は届きにくいです。<br>
+          はっきりと言葉を短く切って喋ると<br>
+          シーマンに伝わりやすいかもしれません。<br><br>
+          シーマンは高い知能を持っているため、人間の文字を読むことができます。<br>
+          シーマンが言葉を正確に聞き取れていないと感じた時は、<br>
+          紙に書き出してシーマンに見せると正確に理解できるでしょう。
+        </p>
+        <button id="intro-proceed">は じ め る</button>
+        <p id="preload-status"></p>
+      </div>
     </div>
 
     <div class="app">
       <!-- 3D 水槽キャンバス（上部 60vh） -->
-      <canvas id="scene-canvas"></canvas>
+      <div id="canvas-wrapper">
+        <canvas id="scene-canvas"></canvas>
+        <div id="status-panel">
+          <div class="sp-header">
+            <button id="sp-help-btn" title="各ステータスの説明">?</button>
+          </div>
+          <div class="sp-row"><span class="sp-label">気分</span><span id="sp-mood">普通</span></div>
+          <div class="sp-row">
+            <span class="sp-label">信頼度</span>
+            <div class="sp-bar-wrap"><div id="sp-trust-bar" class="sp-bar"></div></div>
+          </div>
+          <div class="sp-row"><span class="sp-label">成長</span><span id="sp-stage">幼生</span></div>
+          <div class="sp-divider"></div>
+          <div class="sp-row">
+            <span class="sp-label">お腹</span>
+            <div class="sp-bar-wrap"><div id="sp-stomach-bar" class="sp-bar sp-bar-stomach"></div></div>
+          </div>
+          <div class="sp-row">
+            <span class="sp-label">水質</span>
+            <div class="sp-bar-wrap"><div id="sp-water-bar" class="sp-bar"></div></div>
+          </div>
+          <div class="sp-row"><span class="sp-label">水温</span><span id="sp-temp">25.0°C</span></div>
+          <div class="sp-row"><span class="sp-label">時刻帯</span><span id="sp-time">昼</span></div>
+          <div class="sp-divider"></div>
+          <div class="sp-actions">
+            <button id="water-change-btn" class="sp-btn">💧 水換え</button>
+            <button id="feed-btn" class="sp-btn">🐟 餌やり</button>
+          </div>
+        </div>
+
+        <!-- ヘルプポップアップ -->
+        <div id="status-help-popup">
+          <div class="sp-help-title">ステータス説明</div>
+          <div class="sp-help-item"><strong>気分</strong>：信頼度・空腹・水質に連動。夜は必ず眠い</div>
+          <div class="sp-help-item"><strong>信頼度</strong>：会話・水換えで上昇。放置・汚水で下降</div>
+          <div class="sp-help-item"><strong>成長段階</strong>：幼生→幼魚→シーマン→リボーン。餌と水質で成長</div>
+          <div class="sp-help-item"><strong>お腹</strong>：時間で減少。低いと機嫌が悪くなる</div>
+          <div class="sp-help-item"><strong>水質</strong>：時間で悪化。低いと悲しくなる</div>
+          <div class="sp-help-item"><strong>水温</strong>：外気温に連動。18〜32°C が適温</div>
+          <div class="sp-help-item"><strong>時刻帯</strong>：夜は眠くなり会話が鈍くなる</div>
+        </div>
+      </div>
 
       <!-- チャットパネル（下部 40vh） -->
       <div id="chat-panel">
         <header>
-          <h1>Seaman Modern</h1>
-          <span id="voice-state">idle</span>
+          <h1>話しかけてみよう</h1>
+          <div style="display:flex;gap:0.5rem;align-items:center;">
+            <button id="chat-toggle-btn" type="button">会話履歴 ▼</button>
+            <span id="voice-state">idle</span>
+          </div>
         </header>
 
-        <div id="chat-log" aria-live="polite"></div>
-        <div id="thinking" hidden aria-hidden="true"></div>
+        <div id="chat-log-wrapper">
+          <div id="chat-log" aria-live="polite"></div>
+          <div id="thinking" hidden aria-hidden="true"></div>
+        </div>
 
         <form id="input-form" autocomplete="off">
           <textarea

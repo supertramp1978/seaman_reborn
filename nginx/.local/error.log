@@ -1,0 +1,6 @@
+2026/05/06 16:52:06 [emerg] 36494#0: bind() to 0.0.0.0:8080 failed (48: Address already in use)
+2026/05/06 16:52:06 [emerg] 36494#0: bind() to 0.0.0.0:8080 failed (48: Address already in use)
+2026/05/06 16:52:06 [emerg] 36494#0: bind() to 0.0.0.0:8080 failed (48: Address already in use)
+2026/05/06 16:52:06 [emerg] 36494#0: bind() to 0.0.0.0:8080 failed (48: Address already in use)
+2026/05/06 16:52:06 [emerg] 36494#0: bind() to 0.0.0.0:8080 failed (48: Address already in use)
+2026/05/06 16:52:06 [emerg] 36494#0: still could not bind()

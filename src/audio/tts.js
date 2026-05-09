@@ -119,6 +119,13 @@ class TtsQueue {
     if (this.#audioCtx?.state === "suspended") this.#audioCtx.resume();
   }
 
+  // se.js などで AudioContext を共有するために使う。
+  // VOICEVOX 未検出の場合は新規作成してキャッシュする。
+  getAudioCtx() {
+    if (!this.#audioCtx) this.#audioCtx = new AudioContext();
+    return this.#audioCtx;
+  }
+
   // ── 内部再生ループ ────────────────────────────────────────────────────────
 
   #emit(event, data) {
@@ -201,4 +208,9 @@ export const ttsQueue = new TtsQueue();
 // main.js でユーザーインタラクション時に呼び、AudioContext を確実に resume する
 export function resumeAudioContext() {
   ttsQueue.resumeAudio();
+}
+
+// se.js との AudioContext 共有用
+export function getAudioContext() {
+  return ttsQueue.getAudioCtx();
 }

@@ -17,7 +17,7 @@ export function initAquarium(canvas) {
 
   _scene = new THREE.Scene();
   _scene.background = new THREE.Color(0x050b14);
-  _scene.fog = new THREE.FogExp2(0x0a1a2e, 0.06);
+  _scene.fog = new THREE.FogExp2(0x0a1a2e, 0.04);
 
   const aspect = (_renderer.domElement.width / _renderer.getPixelRatio()) /
                  (_renderer.domElement.height / _renderer.getPixelRatio());
@@ -93,9 +93,9 @@ function _buildTank(scene) {
 }
 
 function _buildLighting(scene) {
-  scene.add(new THREE.AmbientLight(0x6699cc, 0.35));
+  scene.add(new THREE.AmbientLight(0x6699cc, 0.55));
 
-  const top = new THREE.PointLight(0xc8e0ff, 1.2);
+  const top = new THREE.PointLight(0xc8e0ff, 1.8);
   top.position.set(0, 1.4, 0.5);
   scene.add(top);
 
