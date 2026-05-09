@@ -6,16 +6,21 @@ export async function showIntroScreen() {
   await tick();
   screenEl.classList.add('visible');
 
+  // 注意書き画面の SE をロードして再生
+  await se.loadBuffer('caution', 'assets/audio/se_caution.mp3');
+  se.startAmbient('caution', { volume: 0.4, fadeInMs: 800, loop: true });
+
   return new Promise(resolve => {
     document.getElementById('intro-proceed').addEventListener('click', async () => {
-      // ジャングル SE をフェードアウトし、泡 SE をフェードイン
+      // ジャングル SE と注意書き SE をフェードアウト、泡 SE をフェードイン
       se.stopAmbient('jungle', { fadeOutMs: 2000 });
-      await se.loadBuffer('bubble', 'assets/audio/se_bubble.mp3');
+      await se.loadBuffer('bubble', 'assets/audio/se_bubble_02.mp3');
 
       screenEl.classList.add('fade-out');
       setTimeout(async () => {
         screenEl.hidden = true;
-        // ゲーム画面移行後に泡 SE を開始
+        // 3D 水槽キャンバス画面移行後に注意書き SE をフェードアウト、泡 SE を開始
+        se.stopAmbient('caution', { fadeOutMs: 1000 });
         se.startAmbient('bubble', { volume: 0.25, fadeInMs: 1500 });
         resolve();
       }, 600);
