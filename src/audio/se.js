@@ -30,7 +30,7 @@ class SeManager {
     src.start();
   }
 
-  startAmbient(name, { volume = 0.25, fadeInMs = 1000 } = {}) {
+  startAmbient(name, { volume = 0.25, fadeInMs = 1000, loop = true } = {}) {
     if (this.#ambients.has(name)) return;
     const ctx = getAudioContext();
     const buf = this.#buffers.get(name);
@@ -41,7 +41,7 @@ class SeManager {
     gain.connect(ctx.destination);
     const src = ctx.createBufferSource();
     src.buffer = buf;
-    src.loop = true;
+    src.loop = loop;
     src.connect(gain);
     src.start();
     this.#ambients.set(name, { src, gain, volume });

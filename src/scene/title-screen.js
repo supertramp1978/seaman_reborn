@@ -44,8 +44,8 @@ async function _showOpeningRoll() {
     se.loadBuffer('narration', 'assets/audio/narration_title.wav'),
     se.loadBuffer('jungle',    'assets/audio/se_jungle.mp3'),
   ]);
-  se.startAmbient('jungle',   { volume: 0.3, fadeInMs: 500 });
-  se.playOneShot('narration', { volume: 1.0 });
+  se.startAmbient('jungle',    { volume: 0.3, fadeInMs: 500 });
+  se.startAmbient('narration', { volume: 1.0, fadeInMs: 0, loop: false });
 
   // ロゴ画面を隠してロールを表示
   document.getElementById('title-logo-screen').style.display = 'none';
@@ -56,6 +56,7 @@ async function _showOpeningRoll() {
 
   return new Promise(resolve => {
     const finish = () => {
+      se.stopAmbient('narration', { fadeOutMs: 800 });
       rollEl.classList.add('fade-out');
       setTimeout(resolve, 600);
     };

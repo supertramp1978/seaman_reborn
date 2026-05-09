@@ -9,7 +9,7 @@ original_files/
 tests/
 debug/
 docs/
-nginx/
+/nginx/
 
 
 # 工程管理
