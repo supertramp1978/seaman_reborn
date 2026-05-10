@@ -15,6 +15,7 @@ import { initLipSync, updateLipSync } from "./scene/lip-sync.js";
 import { initInteraction } from "./scene/interaction.js";
 import { showTitleScreen } from "./scene/title-screen.js";
 import { showIntroScreen } from "./scene/intro-screen.js";
+import { showResumeScreen } from "./scene/resume-screen.js";
 import { initStatus, onConversation, startWaterChange, stopWaterChange, onFed, getStatusSnapshot, statusEvents } from "./state/seaman-status.js";
 import { initStaticVoice, triggerVoiceEvent, checkKeywordAndTrigger } from "./audio/static-voice.js";
 import { initStatusPanel, renderStatus } from "./ui/status-panel.js";
@@ -205,14 +206,20 @@ async function main() {
   await introPromise;
   await preloadPromise;
 
-  // タイトル・イントロ画面が終わったので水槽画面を表示
-  document.querySelector('.app').style.opacity = '1';
-
   // ── ステータス管理 ────────────────────────────────────────────────────────
   const isFirstVisit = !localStorage.getItem('seaman_visited');
   localStorage.setItem('seaman_visited', '1');
 
+  // オフライン経過分を計算・保存（再開画面で最新値を表示するために先に実行）
   initStatus({ onWaterChangeEffect: triggerWaterChangeReaction });
+
+  // 2回目以降はゲーム再開画面を挟む
+  if (!isFirstVisit) {
+    await showResumeScreen();
+  }
+
+  // タイトル・イントロ画面が終わったので水槽画面を表示
+  document.querySelector('.app').style.opacity = '1';
   if (sceneReady) initFood(getScene());
 
   await se.loadBuffer('water_change', 'assets/audio/se_water_change.mp3');

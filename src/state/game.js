@@ -17,6 +17,7 @@ export function getDefaultState() {
       water_temp: 25.0,
       last_water_change: new Date().toISOString(),
       last_fed: new Date().toISOString(),
+      started_at: new Date().toISOString(),
     },
     player: {
       name: null,
