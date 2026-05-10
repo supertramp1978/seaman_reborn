@@ -199,6 +199,47 @@
       }
       #intro-proceed:hover { background: rgba(100,160,100,0.15); }
 
+      /* ── ゲーム再開画面 ── */
+      #resume-screen {
+        position: fixed; inset: 0; z-index: 93;
+        background: rgba(0,0,0,0.92);
+        display: flex; align-items: center; justify-content: center;
+        opacity: 0; transition: opacity 0.5s;
+      }
+      #resume-screen.visible  { opacity: 1; }
+      #resume-screen.fade-out { opacity: 0; pointer-events: none; }
+      .resume-content {
+        max-width: 480px; width: 90%;
+        display: flex; flex-direction: column; align-items: center; gap: 1.8rem;
+        text-align: center;
+      }
+      .resume-days {
+        font-size: 1.5rem; font-weight: 600;
+        color: #c8b888; letter-spacing: 0.1em; margin: 0;
+      }
+      .resume-stats {
+        width: 100%;
+        display: flex; flex-direction: column; gap: 0.7rem;
+        background: rgba(255,255,255,0.03);
+        border: 1px solid #333; border-radius: 8px;
+        padding: 1.4rem 1.8rem;
+      }
+      .rs-row { display: flex; align-items: center; gap: 0.7rem; }
+      .rs-label { color: #5a6472; min-width: 4.5rem; flex-shrink: 0; font-size: 0.88rem; }
+      .rs-bar-wrap { flex: 1; height: 8px; background: #1a2030; border-radius: 4px; overflow: hidden; }
+      .rs-bar { height: 100%; width: 0%; border-radius: 4px; transition: width 0.6s ease; }
+      .rs-bar-trust   { background: var(--accent); }
+      .rs-bar-stomach { background: #f0a040; }
+      .rs-bar-water   { background: #58c8ff; }
+      .rs-value { color: var(--text); font-size: 0.9rem; min-width: 2.2rem; text-align: right; }
+      #resume-proceed {
+        padding: 0.75rem 3.5rem; border: 1px solid #7a9e7a;
+        background: transparent; color: #a0c8a0;
+        font-size: 1rem; letter-spacing: 0.2em; cursor: pointer;
+        transition: background 0.2s;
+      }
+      #resume-proceed:hover { background: rgba(100,160,100,0.15); }
+
       /* ── 全体レイアウト ── */
       .app {
         width: 100%;
@@ -435,6 +476,40 @@
         </p>
         <button id="intro-proceed">は じ め る</button>
         <p id="preload-status"></p>
+      </div>
+    </div>
+
+    <!-- ゲーム再開画面 -->
+    <div id="resume-screen" hidden>
+      <div class="resume-content">
+        <p id="resume-days" class="resume-days"></p>
+        <div class="resume-stats">
+          <div class="rs-row">
+            <span class="rs-label">気分</span>
+            <span id="rs-mood" class="rs-value" style="flex:1;text-align:left;"></span>
+          </div>
+          <div class="rs-row">
+            <span class="rs-label">信頼度</span>
+            <div class="rs-bar-wrap"><div id="rs-trust-bar" class="rs-bar rs-bar-trust"></div></div>
+          </div>
+          <div class="rs-row">
+            <span class="rs-label">成長段階</span>
+            <span id="rs-stage" class="rs-value" style="flex:1;text-align:left;"></span>
+          </div>
+          <div class="rs-row">
+            <span class="rs-label">お腹</span>
+            <div class="rs-bar-wrap"><div id="rs-stomach-bar" class="rs-bar rs-bar-stomach"></div></div>
+          </div>
+          <div class="rs-row">
+            <span class="rs-label">水質</span>
+            <div class="rs-bar-wrap"><div id="rs-water-bar" class="rs-bar rs-bar-water"></div></div>
+          </div>
+          <div class="rs-row">
+            <span class="rs-label">水温</span>
+            <span id="rs-temp" class="rs-value" style="flex:1;text-align:left;"></span>
+          </div>
+        </div>
+        <button id="resume-proceed">つ づ き か ら</button>
       </div>
     </div>
 
